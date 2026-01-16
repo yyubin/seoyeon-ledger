@@ -1,0 +1,38 @@
+import 'package:hive/hive.dart';
+
+part 'income_record.g.dart';
+
+@HiveType(typeId: 5)
+class IncomeRecord extends HiveObject {
+  @HiveField(0)
+  final String id;
+
+  @HiveField(1)
+  final String groupId;
+
+  @HiveField(2)
+  int amount;
+
+  @HiveField(3)
+  final int startTimestamp;
+
+  @HiveField(4)
+  final int endTimestamp;
+
+  @HiveField(5)
+  int? dateTimestamp;
+
+  DateTime get startDate => DateTime.fromMillisecondsSinceEpoch(startTimestamp);
+  DateTime get endDate => DateTime.fromMillisecondsSinceEpoch(endTimestamp);
+  DateTime get date =>
+      DateTime.fromMillisecondsSinceEpoch(dateTimestamp ?? startTimestamp);
+
+  IncomeRecord({
+    required this.id,
+    required this.groupId,
+    required this.amount,
+    required this.startTimestamp,
+    required this.endTimestamp,
+    this.dateTimestamp,
+  });
+}
