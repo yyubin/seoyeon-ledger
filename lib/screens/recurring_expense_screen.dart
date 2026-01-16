@@ -6,6 +6,7 @@ import '../models/recurring_expense.dart';
 import '../models/recurring_interval_type.dart';
 import '../models/transaction_type.dart';
 import '../services/hive_service.dart';
+import '../utils/amount_input_formatter.dart';
 
 class RecurringExpenseScreen extends StatefulWidget {
   const RecurringExpenseScreen({super.key});
@@ -43,9 +44,8 @@ class _RecurringExpenseScreenState extends State<RecurringExpenseScreen> {
       return;
     }
 
-    final nameController = TextEditingController(text: existing?.name ?? '');
     final amountController = TextEditingController(
-      text: existing?.amount.toString() ?? '',
+      text: existing == null ? '' : NumberFormat('#,###').format(existing.amount),
     );
     final memoController = TextEditingController(text: existing?.memo ?? '');
     var selectedCategory =
@@ -98,17 +98,9 @@ class _RecurringExpenseScreenState extends State<RecurringExpenseScreen> {
                   ),
                   const SizedBox(height: 8),
                   TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: '이름',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    inputFormatters: [AmountInputFormatter()],
                     decoration: const InputDecoration(
                       labelText: '금액',
                       suffixText: '원',
@@ -289,11 +281,10 @@ class _RecurringExpenseScreenState extends State<RecurringExpenseScreen> {
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: () async {
-                      final amount = int.tryParse(amountController.text) ?? 0;
-                      final name = nameController.text.trim();
-                      if (name.isEmpty || amount <= 0) {
+                      final amount = parseAmount(amountController.text);
+                      if (amount <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('이름과 금액을 입력해주세요')),
+                          const SnackBar(content: Text('금액을 입력해주세요')),
                         );
                         return;
                       }
@@ -306,7 +297,7 @@ class _RecurringExpenseScreenState extends State<RecurringExpenseScreen> {
                       final expense = RecurringExpense(
                         id: existing?.id ??
                             DateTime.now().microsecondsSinceEpoch.toString(),
-                        name: name,
+                        name: selectedCategory.name,
                         amount: amount,
                         categoryId: selectedCategory.id,
                         memo: memoController.text.isEmpty ? null : memoController.text,
@@ -361,7 +352,6 @@ class _RecurringExpenseScreenState extends State<RecurringExpenseScreen> {
       },
     );
 
-    nameController.dispose();
     amountController.dispose();
     memoController.dispose();
 
@@ -395,13 +385,29 @@ class _RecurringExpenseScreenState extends State<RecurringExpenseScreen> {
                 itemCount: expenses.length,
                 itemBuilder: (context, index) {
                   final expense = expenses[index];
+                  final category = HiveService.getCategory(expense.categoryId);
+                  final categoryName = category?.name ?? '알 수 없음';
                   final nextRun = expense.nextRunTimestamp == null
                       ? DateTime.fromMillisecondsSinceEpoch(expense.startTimestamp)
                       : DateTime.fromMillisecondsSinceEpoch(expense.nextRunTimestamp!);
                   return ListTile(
-                    title: Text(expense.name),
-                    subtitle: Text(
-                      '${_scheduleLabel(expense)} · 다음 ${DateFormat('yyyy.MM.dd').format(nextRun)}',
+                    title: Text(categoryName),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_scheduleLabel(expense)} · 다음 ${DateFormat('yyyy.MM.dd').format(nextRun)}',
+                        ),
+                        if (expense.memo != null && expense.memo!.isNotEmpty)
+                          Text(
+                            expense.memo!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                      ],
                     ),
                     trailing: Text(
                       '${NumberFormat('#,###').format(expense.amount)}원',

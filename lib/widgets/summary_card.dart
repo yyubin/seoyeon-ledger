@@ -4,16 +4,20 @@ import 'package:intl/intl.dart';
 class SummaryCard extends StatelessWidget {
   final int income;
   final int expense;
+  final int saving;
   final VoidCallback? onIncomeTap;
-  final List<SummaryBreakdownItem> incomeBreakdown;
+  final VoidCallback? onExpenseTap;
+  final VoidCallback? onSavingTap;
   final List<SummaryBreakdownItem> expenseBreakdown;
 
   const SummaryCard({
     super.key,
     required this.income,
     required this.expense,
+    this.saving = 0,
     this.onIncomeTap,
-    this.incomeBreakdown = const [],
+    this.onExpenseTap,
+    this.onSavingTap,
     this.expenseBreakdown = const [],
   });
 
@@ -23,7 +27,7 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final balance = income - expense;
+    final balance = income - expense - saving;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -56,29 +60,17 @@ class SummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildItem(
-                '총수입',
-                income,
-                Colors.white.withValues(alpha: 0.9),
-                onIncomeTap,
-                incomeBreakdown,
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 1,
-                height: 40,
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
-              const SizedBox(width: 8),
-              _buildItem(
-                '총지출',
-                expense,
-                Colors.white.withValues(alpha: 0.9),
-                null,
-                expenseBreakdown,
+              Row(
+                children: [
+                  Expanded(child: _buildSummaryItem('총수입', income, onIncomeTap)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildSummaryItem('총지출', expense, onExpenseTap)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildSummaryItem('총저축', saving, onSavingTap)),
+                ],
               ),
             ],
           ),
@@ -87,13 +79,7 @@ class SummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildItem(
-    String label,
-    int amount,
-    Color color,
-    VoidCallback? onTap,
-    List<SummaryBreakdownItem> breakdown,
-  ) {
+  Widget _buildSummaryItem(String label, int amount, VoidCallback? onTap) {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -110,59 +96,26 @@ class SummaryCard extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: color,
+            color: Colors.white.withValues(alpha: 0.9),
           ),
         ),
-        if (breakdown.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          ...breakdown.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.7),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${_formatAmount(item.amount)}원',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ],
     );
 
     if (onTap == null) {
-      return Expanded(child: content);
+      return content;
     }
 
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: content,
-        ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: content,
       ),
     );
   }
+
 }
 
 class SummaryBreakdownItem {

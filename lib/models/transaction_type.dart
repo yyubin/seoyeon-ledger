@@ -9,4 +9,7 @@ enum TransactionType {
 
   @HiveField(1)
   expense,
+
+  @HiveField(2)
+  saving,
 }

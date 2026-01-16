@@ -1,10 +1,13 @@
 import 'package:hive/hive.dart';
 import '../models/category.dart';
 import '../models/category_group.dart';
+import '../models/fixed_expense_record.dart';
 import '../models/income_record.dart';
 import '../models/recurring_expense.dart';
 import '../models/recurring_interval_type.dart';
+import '../models/saving_record.dart';
 import '../models/transaction.dart';
+import '../models/transaction_item.dart';
 import '../models/transaction_type.dart';
 
 class HiveService {
@@ -13,6 +16,10 @@ class HiveService {
       Hive.box<CategoryGroup>('category_groups');
   static Box<IncomeRecord> get incomeRecordBox =>
       Hive.box<IncomeRecord>('income_records');
+  static Box<SavingRecord> get savingRecordBox =>
+      Hive.box<SavingRecord>('saving_records');
+  static Box<FixedExpenseRecord> get fixedExpenseRecordBox =>
+      Hive.box<FixedExpenseRecord>('fixed_expense_records');
   static Box<RecurringExpense> get recurringExpenseBox =>
       Hive.box<RecurringExpense>('recurring_expenses');
   static Box<Transaction> get transactionBox => Hive.box<Transaction>('transactions');
@@ -23,6 +30,8 @@ class HiveService {
       {'type': TransactionType.income, 'name': '변동수입'},
       {'type': TransactionType.expense, 'name': '고정지출'},
       {'type': TransactionType.expense, 'name': '생활지출'},
+      {'type': TransactionType.saving, 'name': '정기저축'},
+      {'type': TransactionType.saving, 'name': '비상금'},
     ];
 
     for (var i = 0; i < defaults.length; i++) {
@@ -50,6 +59,7 @@ class HiveService {
 
     await _ensureGroupOrders(TransactionType.income);
     await _ensureGroupOrders(TransactionType.expense);
+    await _ensureGroupOrders(TransactionType.saving);
   }
 
   // Category CRUD
@@ -119,6 +129,12 @@ class HiveService {
     return a.name.compareTo(b.name);
   }
 
+  static int _compareRecordId(dynamic a, dynamic b) {
+    final aId = int.tryParse(a.id) ?? 0;
+    final bId = int.tryParse(b.id) ?? 0;
+    return aId.compareTo(bId);
+  }
+
   static Future<void> _ensureGroupOrders(TransactionType type) async {
     final groups = categoryGroupBox.values.where((g) => g.type == type).toList();
     groups.sort((a, b) => a.order.compareTo(b.order));
@@ -176,6 +192,19 @@ class HiveService {
     return null;
   }
 
+  static List<IncomeRecord> getIncomeRecordsForGroupAndDate(
+    String groupId,
+    DateTime date,
+  ) {
+    final dayStart = _startOfDay(date).millisecondsSinceEpoch;
+    final records = incomeRecordBox.values.where((record) {
+      final recordDate = record.dateTimestamp ?? record.startTimestamp;
+      return record.groupId == groupId && recordDate == dayStart;
+    }).toList();
+    records.sort(_compareRecordId);
+    return records;
+  }
+
   static List<IncomeRecord> getIncomeRecordsByRange(DateTime start, DateTime end) {
     final startAt = _startOfDay(start).millisecondsSinceEpoch;
     final endAt = _endOfDay(end).millisecondsSinceEpoch;
@@ -188,12 +217,14 @@ class HiveService {
   static Future<void> upsertIncomeRecord(
     String groupId,
     DateTime date,
-    int amount,
-  ) async {
+    int amount, {
+    String? memo,
+  }) async {
     final existing = getIncomeRecordForGroupAndDate(groupId, date);
     if (existing != null) {
       existing.amount = amount;
       existing.dateTimestamp = _startOfDay(date).millisecondsSinceEpoch;
+      existing.memo = memo;
       await incomeRecordBox.put(existing.id, existing);
       return;
     }
@@ -207,8 +238,43 @@ class HiveService {
       startTimestamp: startAt,
       endTimestamp: endAt,
       dateTimestamp: startAt,
+      memo: memo,
     );
     await incomeRecordBox.put(record.id, record);
+  }
+
+  static Future<void> addIncomeRecord(
+    String groupId,
+    DateTime date,
+    int amount, {
+    String? memo,
+  }) async {
+    final startAt = _startOfDay(date).millisecondsSinceEpoch;
+    final endAt = _endOfDay(date).millisecondsSinceEpoch;
+    final record = IncomeRecord(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      groupId: groupId,
+      amount: amount,
+      startTimestamp: startAt,
+      endTimestamp: endAt,
+      dateTimestamp: startAt,
+      memo: memo,
+    );
+    await incomeRecordBox.put(record.id, record);
+  }
+
+  static Future<void> updateIncomeRecord(
+    IncomeRecord record, {
+    required int amount,
+    String? memo,
+  }) async {
+    record.amount = amount;
+    record.memo = memo;
+    await incomeRecordBox.put(record.id, record);
+  }
+
+  static Future<void> deleteIncomeRecord(String id) async {
+    await incomeRecordBox.delete(id);
   }
 
   static Future<void> deleteIncomeRecordForGroupAndDate(
@@ -218,6 +284,167 @@ class HiveService {
     final existing = getIncomeRecordForGroupAndDate(groupId, date);
     if (existing != null) {
       await incomeRecordBox.delete(existing.id);
+    }
+  }
+
+  // Saving Record CRUD
+  static SavingRecord? getSavingRecordForGroupAndDate(
+    String groupId,
+    DateTime date,
+  ) {
+    final dayStart = _startOfDay(date).millisecondsSinceEpoch;
+    for (final record in savingRecordBox.values) {
+      final recordDate = record.dateTimestamp ?? record.startTimestamp;
+      if (record.groupId == groupId && recordDate == dayStart) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  static List<SavingRecord> getSavingRecordsForGroupAndDate(
+    String groupId,
+    DateTime date,
+  ) {
+    final dayStart = _startOfDay(date).millisecondsSinceEpoch;
+    final records = savingRecordBox.values.where((record) {
+      final recordDate = record.dateTimestamp ?? record.startTimestamp;
+      return record.groupId == groupId && recordDate == dayStart;
+    }).toList();
+    records.sort(_compareRecordId);
+    return records;
+  }
+
+  static List<SavingRecord> getSavingRecordsByRange(DateTime start, DateTime end) {
+    final startAt = _startOfDay(start).millisecondsSinceEpoch;
+    final endAt = _endOfDay(end).millisecondsSinceEpoch;
+    return savingRecordBox.values.where((r) {
+      final recordDate = r.dateTimestamp ?? r.startTimestamp;
+      return recordDate >= startAt && recordDate <= endAt;
+    }).toList();
+  }
+
+  static Future<void> upsertSavingRecord(
+    String groupId,
+    DateTime date,
+    int amount, {
+    String? memo,
+  }) async {
+    final existing = getSavingRecordForGroupAndDate(groupId, date);
+    if (existing != null) {
+      existing.amount = amount;
+      existing.dateTimestamp = _startOfDay(date).millisecondsSinceEpoch;
+      existing.memo = memo;
+      await savingRecordBox.put(existing.id, existing);
+      return;
+    }
+
+    final startAt = _startOfDay(date).millisecondsSinceEpoch;
+    final endAt = _endOfDay(date).millisecondsSinceEpoch;
+    final record = SavingRecord(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      groupId: groupId,
+      amount: amount,
+      startTimestamp: startAt,
+      endTimestamp: endAt,
+      dateTimestamp: startAt,
+      memo: memo,
+    );
+    await savingRecordBox.put(record.id, record);
+  }
+
+  static Future<void> addSavingRecord(
+    String groupId,
+    DateTime date,
+    int amount, {
+    String? memo,
+  }) async {
+    final startAt = _startOfDay(date).millisecondsSinceEpoch;
+    final endAt = _endOfDay(date).millisecondsSinceEpoch;
+    final record = SavingRecord(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      groupId: groupId,
+      amount: amount,
+      startTimestamp: startAt,
+      endTimestamp: endAt,
+      dateTimestamp: startAt,
+      memo: memo,
+    );
+    await savingRecordBox.put(record.id, record);
+  }
+
+  static Future<void> updateSavingRecord(
+    SavingRecord record, {
+    required int amount,
+    String? memo,
+  }) async {
+    record.amount = amount;
+    record.memo = memo;
+    await savingRecordBox.put(record.id, record);
+  }
+
+  static Future<void> deleteSavingRecord(String id) async {
+    await savingRecordBox.delete(id);
+  }
+
+  static Future<void> deleteSavingRecordForGroupAndDate(
+    String groupId,
+    DateTime date,
+  ) async {
+    final existing = getSavingRecordForGroupAndDate(groupId, date);
+    if (existing != null) {
+      await savingRecordBox.delete(existing.id);
+    }
+  }
+
+  // Fixed Expense Record CRUD
+  static FixedExpenseRecord? getFixedExpenseRecordForDate(DateTime date) {
+    final dayStart = _startOfDay(date).millisecondsSinceEpoch;
+    for (final record in fixedExpenseRecordBox.values) {
+      if (record.dateTimestamp == dayStart) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  static List<FixedExpenseRecord> getFixedExpenseRecordsByRange(DateTime start, DateTime end) {
+    final startAt = _startOfDay(start).millisecondsSinceEpoch;
+    final endAt = _endOfDay(end).millisecondsSinceEpoch;
+    return fixedExpenseRecordBox.values.where((r) {
+      return r.dateTimestamp >= startAt && r.dateTimestamp <= endAt;
+    }).toList();
+  }
+
+  static Future<void> upsertFixedExpenseRecord(
+    DateTime date,
+    int amount,
+    List<TransactionItem> items, {
+    String? memo,
+  }) async {
+    final existing = getFixedExpenseRecordForDate(date);
+    if (existing != null) {
+      existing.amount = amount;
+      existing.items = items;
+      existing.memo = memo;
+      await fixedExpenseRecordBox.put(existing.id, existing);
+      return;
+    }
+
+    final record = FixedExpenseRecord.create(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      amount: amount,
+      date: _startOfDay(date),
+      items: items,
+      memo: memo,
+    );
+    await fixedExpenseRecordBox.put(record.id, record);
+  }
+
+  static Future<void> deleteFixedExpenseRecordForDate(DateTime date) async {
+    final existing = getFixedExpenseRecordForDate(date);
+    if (existing != null) {
+      await fixedExpenseRecordBox.delete(existing.id);
     }
   }
 

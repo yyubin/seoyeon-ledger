@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/category.dart';
 import '../models/category_group.dart';
@@ -7,6 +6,7 @@ import '../models/transaction.dart';
 import '../models/transaction_item.dart';
 import '../models/transaction_type.dart';
 import '../services/hive_service.dart';
+import '../utils/amount_input_formatter.dart';
 import '../widgets/category_color_palette.dart';
 
 class AddTransactionScreen extends StatefulWidget {
@@ -42,7 +42,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
     if (_isEditing) {
       final t = widget.transaction!;
-      _amountController.text = t.amount.toString();
+      _amountController.text = _formatAmount(t.amount);
       _memoController.text = t.memo ?? '';
       _selectedDate = t.date;
       _selectedCategory = HiveService.getCategory(t.categoryId);
@@ -205,7 +205,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [AmountInputFormatter()],
               decoration: const InputDecoration(
                 labelText: '금액',
                 suffixText: '원',
@@ -221,7 +221,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           TextButton(
             onPressed: () {
               final name = nameController.text.trim();
-              final amount = int.tryParse(amountController.text) ?? 0;
+              final amount = parseAmount(amountController.text);
               if (name.isNotEmpty && amount > 0) {
                 Navigator.pop(
                   context,
@@ -238,7 +238,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     if (result != null) {
       setState(() {
         _items.add(result);
-        _amountController.text = _itemsTotal.toString();
+        _amountController.text = _formatAmount(_itemsTotal);
       });
     }
   }
@@ -247,14 +247,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     setState(() {
       _items.removeAt(index);
       if (_items.isNotEmpty) {
-        _amountController.text = _itemsTotal.toString();
+        _amountController.text = _formatAmount(_itemsTotal);
       }
     });
   }
 
   Future<void> _save() async {
-    final amount = int.tryParse(_amountController.text);
-    if (amount == null || amount <= 0) {
+    final amount = parseAmount(_amountController.text);
+    if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('금액을 입력해주세요')),
       );
@@ -322,7 +322,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [AmountInputFormatter()],
               decoration: const InputDecoration(
                 labelText: '금액',
                 suffixText: '원',

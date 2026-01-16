@@ -1,41 +1,44 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'category_group.dart';
+part of 'fixed_expense_record.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class CategoryGroupAdapter extends TypeAdapter<CategoryGroup> {
+class FixedExpenseRecordAdapter extends TypeAdapter<FixedExpenseRecord> {
   @override
-  final int typeId = 4;
+  final int typeId = 9;
 
   @override
-  CategoryGroup read(BinaryReader reader) {
+  FixedExpenseRecord read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return CategoryGroup(
+    return FixedExpenseRecord(
       id: fields[0] as String,
-      name: fields[1] as String,
-      type: fields[2] as TransactionType,
-      order: fields[3] as int,
+      amount: fields[1] as int,
+      dateTimestamp: fields[2] as int,
+      items: (fields[3] as List?)?.cast<TransactionItem>(),
+      memo: fields[4] as String?,
     );
   }
 
   @override
-  void write(BinaryWriter writer, CategoryGroup obj) {
+  void write(BinaryWriter writer, FixedExpenseRecord obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.name)
+      ..write(obj.amount)
       ..writeByte(2)
-      ..write(obj.type)
+      ..write(obj.dateTimestamp)
       ..writeByte(3)
-      ..write(obj.order);
+      ..write(obj.items)
+      ..writeByte(4)
+      ..write(obj.memo);
   }
 
   @override
@@ -44,7 +47,7 @@ class CategoryGroupAdapter extends TypeAdapter<CategoryGroup> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is CategoryGroupAdapter &&
+      other is FixedExpenseRecordAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

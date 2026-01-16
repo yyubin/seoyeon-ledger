@@ -21,16 +21,16 @@ class RecurringExpenseAdapter extends TypeAdapter<RecurringExpense> {
       name: fields[1] as String,
       amount: fields[2] as int,
       categoryId: fields[3] as String,
+      intervalType: fields[6] as RecurringIntervalType,
+      startTimestamp: fields[10] as int,
       memo: fields[4] as String?,
       items: (fields[5] as List?)?.cast<TransactionItem>(),
-      intervalType: fields[6] as RecurringIntervalType,
       dayOfMonth: fields[7] as int?,
       weekday: fields[8] as int?,
       intervalDays: fields[9] as int?,
-      startTimestamp: fields[10] as int,
       endTimestamp: fields[11] as int?,
       nextRunTimestamp: fields[12] as int?,
-      isActive: fields[13] as bool? ?? true,
+      isActive: fields[13] as bool,
     );
   }
 

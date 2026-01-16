@@ -9,12 +9,16 @@ class TransactionTile extends StatefulWidget {
   final Transaction transaction;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final bool showDate;
+  final bool useCategoryColor;
 
   const TransactionTile({
     super.key,
     required this.transaction,
     this.onEdit,
     this.onDelete,
+    this.showDate = false,
+    this.useCategoryColor = true,
   });
 
   @override
@@ -38,11 +42,20 @@ class _TransactionTileState extends State<TransactionTile> {
       category?.colorIndex ?? CategoryColorPalette.fallbackIndex(transaction.categoryId),
     );
 
+    final tileBackground =
+        widget.useCategoryColor ? categoryColor.withValues(alpha: 0.18) : Colors.white;
+    final tileBorder = widget.useCategoryColor
+        ? Border.all(color: Colors.transparent)
+        : Border.all(color: Colors.grey.withValues(alpha: 0.2));
+    final iconBackground =
+        widget.useCategoryColor ? categoryColor.withValues(alpha: 0.25) : Colors.grey[100]!;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: categoryColor.withValues(alpha: 0.18),
+        color: tileBackground,
         borderRadius: BorderRadius.circular(14),
+        border: tileBorder,
       ),
       child: Column(
         children: [
@@ -57,7 +70,7 @@ class _TransactionTileState extends State<TransactionTile> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: categoryColor.withValues(alpha: 0.25),
+                      color: iconBackground,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -94,6 +107,16 @@ class _TransactionTileState extends State<TransactionTile> {
                             ],
                           ],
                         ),
+                        if (widget.showDate) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            DateFormat('yyyy.MM.dd').format(transaction.date),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
                         if (transaction.memo?.isNotEmpty == true) ...[
                           const SizedBox(height: 2),
                           Text(

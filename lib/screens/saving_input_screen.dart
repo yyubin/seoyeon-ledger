@@ -1,41 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/category_group.dart';
-import '../models/income_record.dart';
+import '../models/saving_record.dart';
 import '../models/transaction_type.dart';
 import '../services/hive_service.dart';
 import '../utils/amount_input_formatter.dart';
 
-class IncomeInputScreen extends StatefulWidget {
+class SavingInputScreen extends StatefulWidget {
   final DateTime startDate;
   final DateTime endDate;
 
-  const IncomeInputScreen({
+  const SavingInputScreen({
     super.key,
     required this.startDate,
     required this.endDate,
   });
 
   @override
-  State<IncomeInputScreen> createState() => _IncomeInputScreenState();
+  State<SavingInputScreen> createState() => _SavingInputScreenState();
 }
 
-class _IncomeInputScreenState extends State<IncomeInputScreen> {
+class _SavingInputScreenState extends State<SavingInputScreen> {
   late List<CategoryGroup> _groups;
-  final Map<String, List<IncomeRecord>> _recordsByGroup = {};
+  final Map<String, List<SavingRecord>> _recordsByGroup = {};
   late DateTime _selectedDate;
   bool _changed = false;
 
   @override
   void initState() {
     super.initState();
-    _groups = HiveService.getCategoryGroups(type: TransactionType.income);
+    _groups = HiveService.getCategoryGroups(type: TransactionType.saving);
     _selectedDate = DateTime.now();
     _loadRecordsForDate(_selectedDate);
   }
 
   void _reloadGroups() {
-    _groups = HiveService.getCategoryGroups(type: TransactionType.income);
+    _groups = HiveService.getCategoryGroups(type: TransactionType.saving);
     _loadRecordsForDate(_selectedDate);
   }
 
@@ -45,13 +45,13 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('수입 카테고리 추가'),
+        title: const Text('저축 카테고리 추가'),
         content: TextField(
           controller: nameController,
           autofocus: true,
           decoration: const InputDecoration(
             labelText: '카테고리 이름',
-            hintText: '예: 부업, 이자수입',
+            hintText: '예: 여행자금, 결혼자금',
             border: OutlineInputBorder(),
           ),
         ),
@@ -76,7 +76,6 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
     nameController.dispose();
 
     if (result != null && result.isNotEmpty) {
-      // 중복 체크
       final exists = _groups.any((g) => g.name == result);
       if (exists) {
         if (mounted) {
@@ -90,7 +89,7 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
       final newGroup = CategoryGroup(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         name: result,
-        type: TransactionType.income,
+        type: TransactionType.saving,
         order: _groups.length,
       );
       await HiveService.addCategoryGroup(newGroup);
@@ -107,7 +106,7 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('카테고리 삭제'),
-        content: Text('\'${group.name}\' 카테고리를 삭제할까요?\n이 카테고리의 수입 기록은 유지됩니다.'),
+        content: Text('\'${group.name}\' 카테고리를 삭제할까요?\n이 카테고리의 저축 기록은 유지됩니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -135,7 +134,7 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
     _recordsByGroup.clear();
     for (final group in _groups) {
       _recordsByGroup[group.id] =
-          HiveService.getIncomeRecordsForGroupAndDate(group.id, date);
+          HiveService.getSavingRecordsForGroupAndDate(group.id, date);
     }
   }
 
@@ -164,7 +163,7 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
     return NumberFormat('#,###').format(amount);
   }
 
-  Future<void> _openRecordEditor(CategoryGroup group, {IncomeRecord? record}) async {
+  Future<void> _openRecordEditor(CategoryGroup group, {SavingRecord? record}) async {
     final amountController = TextEditingController(
       text: record == null ? '' : _formatAmount(record.amount),
     );
@@ -174,7 +173,7 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isEditing ? '수입 내역 수정' : '수입 내역 추가'),
+        title: Text(isEditing ? '저축 내역 수정' : '저축 내역 추가'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -217,13 +216,13 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
               }
               final memo = memoController.text.trim();
               if (isEditing) {
-                await HiveService.updateIncomeRecord(
+                await HiveService.updateSavingRecord(
                   record!,
                   amount: amount,
                   memo: memo.isEmpty ? null : memo,
                 );
               } else {
-                await HiveService.addIncomeRecord(
+                await HiveService.addSavingRecord(
                   group.id,
                   _selectedDate,
                   amount,
@@ -247,12 +246,12 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
       setState(() {
         _changed = true;
         _recordsByGroup[group.id] =
-            HiveService.getIncomeRecordsForGroupAndDate(group.id, _selectedDate);
+            HiveService.getSavingRecordsForGroupAndDate(group.id, _selectedDate);
       });
     }
   }
 
-  Future<void> _deleteRecord(CategoryGroup group, IncomeRecord record) async {
+  Future<void> _deleteRecord(CategoryGroup group, SavingRecord record) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -272,12 +271,12 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
     );
 
     if (confirm == true) {
-      await HiveService.deleteIncomeRecord(record.id);
+      await HiveService.deleteSavingRecord(record.id);
       if (mounted) {
         setState(() {
           _changed = true;
           _recordsByGroup[group.id] =
-              HiveService.getIncomeRecordsForGroupAndDate(group.id, _selectedDate);
+              HiveService.getSavingRecordsForGroupAndDate(group.id, _selectedDate);
         });
       }
     }
@@ -292,7 +291,7 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('수입 입력'),
+          title: const Text('저축 입력'),
           actions: [
             IconButton(
               onPressed: _addCategory,
@@ -362,10 +361,10 @@ class _IncomeInputScreenState extends State<IncomeInputScreen> {
                   padding: const EdgeInsets.all(32),
                   child: Column(
                     children: [
-                      Icon(Icons.category_outlined, size: 48, color: Colors.grey[400]),
+                      Icon(Icons.savings_outlined, size: 48, color: Colors.grey[400]),
                       const SizedBox(height: 16),
                       Text(
-                        '수입 카테고리가 없습니다',
+                        '저축 카테고리가 없습니다',
                         style: TextStyle(color: Colors.grey[500]),
                       ),
                       const SizedBox(height: 8),

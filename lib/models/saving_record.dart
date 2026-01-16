@@ -1,9 +1,9 @@
 import 'package:hive/hive.dart';
 
-part 'income_record.g.dart';
+part 'saving_record.g.dart';
 
-@HiveType(typeId: 5)
-class IncomeRecord extends HiveObject {
+@HiveType(typeId: 8)
+class SavingRecord extends HiveObject {
   @HiveField(0)
   final String id;
 
@@ -30,7 +30,7 @@ class IncomeRecord extends HiveObject {
   DateTime get date =>
       DateTime.fromMillisecondsSinceEpoch(dateTimestamp ?? startTimestamp);
 
-  IncomeRecord({
+  SavingRecord({
     required this.id,
     required this.groupId,
     required this.amount,
