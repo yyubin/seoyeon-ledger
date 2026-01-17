@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import '../models/category.dart';
 import '../models/category_group.dart';
@@ -27,18 +28,38 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
+
+  Box get _settingsBox => Hive.box('settings');
+
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _startDate = DateTime(now.year, now.month, 1);
-    _endDate = DateTime(now.year, now.month + 1, 0);
+    _loadSavedDateRange();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await HiveService.ensureRecurringExpenses(_startDate, _endDate);
       if (mounted) {
         setState(() {});
       }
     });
+  }
+
+  void _loadSavedDateRange() {
+    final savedStartTimestamp = _settingsBox.get('startDate') as int?;
+    final savedEndTimestamp = _settingsBox.get('endDate') as int?;
+
+    if (savedStartTimestamp != null && savedEndTimestamp != null) {
+      _startDate = DateTime.fromMillisecondsSinceEpoch(savedStartTimestamp);
+      _endDate = DateTime.fromMillisecondsSinceEpoch(savedEndTimestamp);
+    } else {
+      final now = DateTime.now();
+      _startDate = DateTime(now.year, now.month, 1);
+      _endDate = DateTime(now.year, now.month + 1, 0);
+    }
+  }
+
+  Future<void> _saveDateRange() async {
+    await _settingsBox.put('startDate', _startDate.millisecondsSinceEpoch);
+    await _settingsBox.put('endDate', _endDate.millisecondsSinceEpoch);
   }
 
   Future<void> _pickDateRange() async {
@@ -63,6 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _startDate = picked.start;
         _endDate = picked.end;
       });
+      await _saveDateRange();
       await HiveService.ensureRecurringExpenses(_startDate, _endDate);
       if (mounted) {
         setState(() {});
@@ -979,10 +1001,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       trailing: Text(
                         '${_formatAmount(total)}원',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: categoryColor,
+                          color: Colors.black,
                         ),
                       ),
                     children: items.isEmpty
@@ -1438,7 +1460,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<Category>(
-                        value: selectedCategory,
+                        value: currentCategory,
                         isExpanded: true,
                         items: [
                           for (final category in allCategories)

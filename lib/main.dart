@@ -36,6 +36,7 @@ void main() async {
   await Hive.openBox<FixedExpenseRecord>('fixed_expense_records');
   await Hive.openBox<RecurringExpense>('recurring_expenses');
   await Hive.openBox<Transaction>('transactions');
+  await Hive.openBox('settings');
   await HiveService.ensureDefaultGroups();
 
   runApp(const MyApp());
